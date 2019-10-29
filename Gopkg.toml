@@ -121,7 +121,7 @@ required = [
 
 [[constraint]]
   name = "github.com/olivere/elastic"
-  version = "^6.2.22"
+  version = "^6.2.25"
 
 [[constraint]]
   name = "github.com/gocql/gocql"

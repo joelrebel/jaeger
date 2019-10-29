@@ -59,6 +59,7 @@ func TestOptionsWithFlags(t *testing.T) {
 		"--es.aux.num-replicas=10",
 		"--es.tls=true",
 		"--es.tls.skip-host-verify=true",
+		"--es.aux.custom-http-headers=Host: foo.com\r\nContent-Encoding: gzip\r\n",
 	})
 	opts.InitFromViper(v)
 
@@ -78,6 +79,8 @@ func TestOptionsWithFlags(t *testing.T) {
 	assert.Equal(t, int64(20), aux.NumShards)
 	assert.Equal(t, int64(10), aux.NumReplicas)
 	assert.Equal(t, 24*time.Hour, aux.MaxSpanAge)
+	assert.Equal(t, "gzip", aux.CustomHTTPHeaders.Get("Content-Encoding"))
+	assert.Equal(t, "foo.com", aux.CustomHTTPHeaders.Get("Host"))
 	assert.True(t, aux.Sniffer)
 
 }

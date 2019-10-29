@@ -64,6 +64,7 @@ type Configuration struct {
 	UseReadWriteAliases   bool
 	CreateIndexTemplates  bool
 	Version               uint
+	CustomHTTPHeaders     http.Header //custom http headers to be included in each request
 }
 
 // TLSConfig describes the configuration properties to connect tls enabled ElasticSearch cluster
@@ -290,6 +291,11 @@ func (c *Configuration) getConfigOptions(logger *zap.Logger) ([]elastic.ClientOp
 	httpClient := &http.Client{
 		Timeout: c.Timeout,
 	}
+
+	if len(c.CustomHTTPHeaders) != 0 {
+		elastic.SetHeaders(c.CustomHTTPHeaders)
+	}
+
 	options = append(options, elastic.SetHttpClient(httpClient))
 	if c.TLS.Enabled {
 		ctlsConfig, err := c.TLS.createTLSConfig()

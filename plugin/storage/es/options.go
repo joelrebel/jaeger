@@ -16,7 +16,10 @@
 package es
 
 import (
+	"bufio"
 	"flag"
+	"net/http"
+	"net/textproto"
 	"strings"
 	"time"
 
@@ -55,6 +58,7 @@ const (
 	suffixCreateIndexTemplate = ".create-index-templates"
 	suffixEnabled             = ".enabled"
 	suffixVersion             = ".version"
+	suffixCustomHTTPHeaders   = ".custom-http-headers"
 )
 
 // TODO this should be moved next to config.Configuration struct (maybe ./flags package)
@@ -73,8 +77,9 @@ type Options struct {
 // preparing the actual config.Configuration.
 type namespaceConfig struct {
 	config.Configuration
-	servers   string
-	namespace string
+	servers           string
+	customHTTPHeaders string
+	namespace         string
 }
 
 // NewOptions creates a new Options struct.
@@ -227,6 +232,11 @@ func addFlags(flagSet *flag.FlagSet, nsConfig *namespaceConfig) {
 		nsConfig.namespace+suffixVersion,
 		0,
 		"The major Elasticsearch version. If not specified, the value will be auto-detected from Elasticsearch.")
+	flagSet.String(
+		nsConfig.namespace+suffixCustomHTTPHeaders,
+		nsConfig.customHTTPHeaders,
+		"(experimental) Custom HTTP headers to be set in the elastic client.")
+
 	if nsConfig.namespace == archiveNamespace {
 		flagSet.Bool(
 			nsConfig.namespace+suffixEnabled,
@@ -271,6 +281,7 @@ func initFromViper(cfg *namespaceConfig, v *viper.Viper) {
 	cfg.Enabled = v.GetBool(cfg.namespace + suffixEnabled)
 	cfg.CreateIndexTemplates = v.GetBool(cfg.namespace + suffixCreateIndexTemplate)
 	cfg.Version = uint(v.GetInt(cfg.namespace + suffixVersion))
+	cfg.customHTTPHeaders = v.GetString(cfg.namespace + suffixCustomHTTPHeaders)
 	// TODO: Need to figure out a better way for do this.
 	cfg.AllowTokenFromContext = v.GetBool(spanstore.StoragePropagationKey)
 }
@@ -293,10 +304,28 @@ func (opt *Options) Get(namespace string) *config.Configuration {
 		nsCfg.servers = opt.primary.servers
 	}
 	nsCfg.Servers = strings.Split(nsCfg.servers, ",")
+
+	nsCfg.CustomHTTPHeaders = parseHTTPHeaders(nsCfg.customHTTPHeaders)
+
 	return &nsCfg.Configuration
 }
 
 // stripWhiteSpace removes all whitespace characters from a string
 func stripWhiteSpace(str string) string {
 	return strings.Replace(str, " ", "", -1)
+}
+
+// parseHTTPHeaders parses the string and returns a http.Header
+func parseHTTPHeaders(s string) http.Header {
+	reader := bufio.NewReader(strings.NewReader(s + "\r\n"))
+	tp := textproto.NewReader(reader)
+
+	mimeHeader, err := tp.ReadMIMEHeader()
+	// ideally we want to return the error, since the caller doesn't return an error, this doesn't
+	if err != nil {
+		return http.Header{}
+	}
+
+	return http.Header(mimeHeader)
+
 }
